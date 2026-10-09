@@ -11,6 +11,16 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+// --- THÊM ROUTER: Import các hook và hàm khởi tạo của TanStack Router ---
+import {
+  createRouter,
+  createRoute,
+  createRootRoute,
+  RouterProvider,
+  useRouterState,
+  useNavigate,
+} from '@tanstack/react-router';
+// -------------------------------------------------------------------------
 import { MonAn, CheDoXem, ThongBaoThanhCong } from './types/food';
 import { foodApi } from './services/foodApi';
 import { dinhDangTienVND } from './data/initialFoods';
@@ -23,6 +33,32 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { SuccessPopupModal } from './components/SuccessPopupModal';
 import { Footer } from './components/Footer';
 import { Loader2 } from 'lucide-react';
+
+// --- THÊM ROUTER: Khởi tạo các Route ---
+const rootRoute = createRootRoute({
+  component: AppContent,
+});
+
+const thucDonRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/', // Đường dẫn trang chủ (Thực đơn)
+});
+
+const quanLyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/quan-ly', // Đường dẫn trang quản lý
+});
+
+const routeTree = rootRoute.addChildren([thucDonRoute, quanLyRoute]);
+const router = createRouter({ routeTree });
+
+// Đăng ký type an toàn cho TypeScript
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+// ---------------------------------------
 
 // Khởi tạo QueryClient cho TanStack Query với cấu hình thời gian cache (staleTime 5 phút)
 const quanLyTruyVan = new QueryClient({
@@ -37,19 +73,26 @@ const quanLyTruyVan = new QueryClient({
 function AppContent() {
   const queryClient = useQueryClient();
 
-  // Chế độ xem hiện tại: 'thuc-don' hoặc 'quan-ly'
-  const [cheDoHienTai, setCheDoHienTai] = useState<CheDoXem>('thuc-don');
+  // --- THÊM ROUTER: Đổi từ useState sang quản lý bằng URL ---
+  const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
 
-  // Trạng thái các Modal
+  // Xác định chế độ hiển thị dựa trên URL hiện tại
+  const cheDoHienTai: CheDoXem = pathname === '/quan-ly' ? 'quan-ly' : 'thuc-don';
+  // ----------------------------------------------------------
+
+  // Trạng thái các Modal (Giữ nguyên hoàn toàn)
   const [monAnDangXemChiTiet, setMonAnDangXemChiTiet] = useState<MonAn | null>(null);
   const [dangMoModalBieuMau, setDangMoModalBieuMau] = useState(false);
   const [monAnCanChinhSua, setMonAnCanChinhSua] = useState<MonAn | null>(null);
 
-  // Trạng thái xóa món
+  // Trạng thái xóa món (Giữ nguyên hoàn toàn)
   const [monAnCanXoa, setMonAnCanXoa] = useState<MonAn | null>(null);
   const [danhSachIdCanXoaHangLoat, setDanhSachIdCanXoaHangLoat] = useState<string[] | null>(null);
 
-  // Trạng thái Popup thông báo thành công ở giữa màn hình
+  // Trạng thái Popup thông báo thành công ở giữa màn hình (Giữ nguyên hoàn toàn)
   const [thongBaoThanhCong, setThongBaoThanhCong] = useState<ThongBaoThanhCong>({
     dangMo: false,
     loaiThaoTac: 'them',
@@ -70,7 +113,6 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['danh-sach-mon-an'] });
       setDangMoModalBieuMau(false);
       setMonAnCanChinhSua(null);
-      // Hiển thị Pop-up thông báo thêm thành công
       setThongBaoThanhCong({
         dangMo: true,
         loaiThaoTac: 'them',
@@ -87,7 +129,6 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['danh-sach-mon-an'] });
       setDangMoModalBieuMau(false);
       setMonAnCanChinhSua(null);
-      // Hiển thị Pop-up thông báo cập nhật thành công
       setThongBaoThanhCong({
         dangMo: true,
         loaiThaoTac: 'sua',
@@ -192,10 +233,14 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col font-sans">
-      {/* Thanh Header (Không có nút thêm món) */}
+      {/* Thanh Header */}
       <Header
         cheDoXem={cheDoHienTai}
-        doiCheDoXem={setCheDoHienTai}
+        // --- THÊM ROUTER: Chuyển hướng URL thay vì dùng setCheDoHienTai ---
+        doiCheDoXem={(cheDo) => {
+          navigate({ to: cheDo === 'thuc-don' ? '/' : '/quan-ly' });
+        }}
+        // -------------------------------------------------------------------
         tongSoMon={danhSachMonAn.length}
       />
 
@@ -225,7 +270,7 @@ function AppContent() {
 
       <Footer />
 
-      {/* 1. Modal xem chi tiết món ăn (Chỉ Tên, Mô tả, Giá, Phân loại) */}
+      {/* 1. Modal xem chi tiết món ăn */}
       <FoodDetailModal
         monAn={monAnDangXemChiTiet}
         dangMo={!!monAnDangXemChiTiet}
@@ -286,7 +331,9 @@ function AppContent() {
 export default function App() {
   return (
     <QueryClientProvider client={quanLyTruyVan}>
-      <AppContent />
+      {/* --- THÊM ROUTER: Cung cấp Router cho toàn bộ ứng dụng --- */}
+      <RouterProvider router={router} />
+      {/* --------------------------------------------------------- */}
     </QueryClientProvider>
   );
 }
